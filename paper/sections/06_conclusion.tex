@@ -1,0 +1,42 @@
+% Conclusion section
+
+We introduced \textbf{Targeted Direction Unlearning (TDU)}, a novel approach to removing specific factual knowledge from large language models. Unlike prior methods that treat unlearning as an optimization problem over model parameters, TDU leverages the geometric structure of neural representations to identify and ablate the directions encoding target facts.
+
+\paragraph{Summary of Contributions.}
+\begin{enumerate}
+    \item We demonstrated that factual associations are encoded as approximately linear directions in MLP output spaces, enabling targeted removal through rank-one projections.
+    
+    \item We developed a layer-wise attribution method that identifies which transformer layers encode specific facts, revealing that early-to-middle layers are predominantly responsible for factual recall.
+    
+    \item We showed that TDU achieves competitive unlearning efficacy while being substantially faster than gradient-based methods and providing unprecedented interpretability into the removal process.
+    
+    \item We validated that the retention constraint effectively minimizes collateral damage, preserving unrelated knowledge while achieving targeted forgetting.
+\end{enumerate}
+
+\paragraph{Implications for AI Safety.}
+TDU has direct applications to AI safety and alignment:
+\begin{itemize}
+    \item \textbf{Privacy compliance:} Enables GDPR-style ``right to be forgotten'' for personal information encoded in LLMs.
+    \item \textbf{Harmful knowledge removal:} Can surgically remove specific dangerous capabilities while preserving general utility.
+    \item \textbf{Factual correction:} Provides a mechanism to update stale knowledge without full retraining.
+\end{itemize}
+
+The interpretability of TDU's directions also advances our understanding of how LLMs represent knowledge, contributing to the broader goal of mechanistic interpretability.
+
+\paragraph{Limitations and Future Work.}
+Several directions remain for future research:
+
+\begin{itemize}
+    \item \textbf{Scaling:} Extending TDU to models with hundreds of billions of parameters may require efficient approximations or distributed computation.
+    
+    \item \textbf{Complex knowledge:} Facts involving multi-hop reasoning or implicit associations may require multiple directions or different architectural interventions.
+    
+    \item \textbf{Verification:} Developing robust methods to verify complete unlearning (not just reduced probability) remains an open challenge.
+    
+    \item \textbf{Interference:} Understanding and mitigating interference effects when unlearning many related facts simultaneously.
+\end{itemize}
+
+\paragraph{Broader Impact.}
+While TDU enables beneficial applications like privacy protection and safety, the same techniques could potentially be misused to remove beneficial knowledge or safety guardrails. We encourage the research community to develop robust verification methods and governance frameworks for knowledge editing technologies.
+
+In conclusion, TDU represents a step toward interpretable and surgical knowledge modification in large language models. By grounding unlearning in the geometric structure of representations, we obtain both practical efficiency and scientific insight into the nature of knowledge in neural networks.

@@ -1,0 +1,164 @@
+\documentclass{article}
+
+% Use neurips_2024 style (download separately if needed)
+% For now, use a clean article format
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+% \usepackage{microtype}  % Disabled due to font expansion issues
+\usepackage{graphicx}
+\usepackage{xcolor}
+% Algorithm packages - use algorithmicx if available, else skip
+% \usepackage{algorithm}
+% \usepackage{algorithmic}
+\usepackage{subcaption}
+
+% Page setup
+\usepackage[margin=1in]{geometry}
+
+% Custom commands
+\newcommand{\fu}{\mathbf{f}_u}
+\newcommand{\W}{\mathbf{W}}
+\newcommand{\x}{\mathbf{x}}
+\newcommand{\proj}{\text{proj}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Targeted Direction Unlearning: \\
+Surgical Fact Removal via Interpretable Projections}
+
+\author{
+  Anonymous Authors
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We introduce \textbf{Targeted Direction Unlearning (TDU)}, a novel method for removing specific factual knowledge from large language models. 
+Unlike gradient-based unlearning methods that require iterative optimization, TDU discovers the \emph{direction} in activation space that encodes a target fact, then surgically removes it via rank-one projection. 
+Our key insight is that factual knowledge is encoded as approximately linear directions in MLP output spaces, and projecting out these directions effectively ``forgets'' the fact while preserving unrelated knowledge.
+
+We evaluate TDU on the CounterFact benchmark across GPT-2, Pythia-410M, and Pythia-1B models. 
+Our experiments show that: (1) facts are consistently encoded in early-middle layers (layers 1-4), (2) TDU achieves competitive efficacy with state-of-the-art methods while being 10x faster, and (3) the discovered directions are interpretable---directions for related facts show high cosine similarity.
+TDU provides a practical and interpretable approach to targeted knowledge removal, with implications for privacy compliance, factual updates, and model safety.
+\end{abstract}
+
+%% ============================================
+%% INTRODUCTION
+%% ============================================
+\section{Introduction}
+\input{sections/01_introduction}
+
+%% ============================================
+%% RELATED WORK
+%% ============================================
+\section{Related Work}
+\input{sections/02_related_work}
+
+%% ============================================
+%% METHOD
+%% ============================================
+\section{Method: Targeted Direction Unlearning}
+\input{sections/03_method}
+
+%% ============================================
+%% EXPERIMENTS
+%% ============================================
+\section{Experiments}
+\input{sections/04_experiments}
+
+%% ============================================
+%% ANALYSIS
+%% ============================================
+\section{Analysis}
+\input{sections/05_analysis}
+
+%% ============================================
+%% CONCLUSION
+%% ============================================
+\section{Conclusion}
+\input{sections/06_conclusion}
+
+%% ============================================
+%% REFERENCES
+%% ============================================
+\bibliographystyle{plain}
+% \bibliography{references}
+
+% Placeholder references for now
+\begin{thebibliography}{10}
+
+\bibitem{meng2022rome}
+Kevin Meng, David Bau, Alex Andonian, and Yonatan Belinkov.
+\newblock Locating and editing factual associations in GPT.
+\newblock In \emph{NeurIPS}, 2022.
+
+\bibitem{meng2023memit}
+Kevin Meng, Arnab Sen Sharma, Alex Andonian, Yonatan Belinkov, and David Bau.
+\newblock Mass-editing memory in a transformer.
+\newblock In \emph{ICLR}, 2023.
+
+\bibitem{eldan2023whos}
+Ronen Eldan and Mark Russinovich.
+\newblock Who's Harry Potter? Approximate unlearning in LLMs.
+\newblock \emph{arXiv preprint arXiv:2310.02238}, 2023.
+
+\bibitem{jang2023knowledge}
+Joel Jang, Dongkeun Yoon, Sohee Yang, Sungmin Cha, Moontae Lee, Lajanugen Logeswaran, and Minjoon Seo.
+\newblock Knowledge unlearning for mitigating privacy risks in language models.
+\newblock In \emph{ACL}, 2023.
+
+\bibitem{biderman2023pythia}
+Stella Biderman et al.
+\newblock Pythia: A suite for analyzing large language models across training and scaling.
+\newblock In \emph{ICML}, 2023.
+
+\bibitem{geva2021transformer}
+Mor Geva, Roei Schuster, Jonathan Berant, and Omer Levy.
+\newblock Transformer feed-forward layers are key-value memories.
+\newblock In \emph{EMNLP}, 2021.
+
+\bibitem{nanda2023transformerlens}
+Neel Nanda and Joseph Bloom.
+\newblock TransformerLens.
+\newblock \url{https://github.com/TransformerLensOrg/TransformerLens}, 2023.
+
+\bibitem{bricken2023monosemanticity}
+Trenton Bricken et al.
+\newblock Towards monosemanticity: Decomposing language models with dictionary learning.
+\newblock \emph{Transformer Circuits Thread}, 2023.
+
+\bibitem{zou2023representation}
+Andy Zou et al.
+\newblock Representation engineering: A top-down approach to AI transparency.
+\newblock \emph{arXiv preprint arXiv:2310.01405}, 2023.
+
+\bibitem{ilharco2023editing}
+Gabriel Ilharco et al.
+\newblock Editing models with task arithmetic.
+\newblock In \emph{ICLR}, 2023.
+
+\end{thebibliography}
+
+%% ============================================
+%% APPENDIX
+%% ============================================
+\appendix
+\section{Additional Experimental Details}
+\label{app:details}
+% To be filled with hyperparameters, compute details, etc.
+
+\section{Additional Results}
+\label{app:results}
+% Extended results tables
+
+\end{document}

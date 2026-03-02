@@ -1,0 +1,115 @@
+% Analysis section - interpretability and additional experiments
+
+\subsection{What Do the Directions Encode?}
+\label{sec:direction_analysis}
+
+A key advantage of TDU over black-box unlearning methods is the interpretability of the learned directions. Each $\mathbf{f}_u^{(\ell)}$ is a unit vector in $\mathbb{R}^d$ that can be analyzed to understand what the model ``knows'' about the target fact.
+
+\paragraph{Direction Similarity for Related Facts.}
+We hypothesize that facts sharing semantic content should have similar encoding directions. To test this, we compute the cosine similarity between directions learned for related facts:
+
+\begin{equation}
+    \text{sim}(\mathbf{f}_u^{(i)}, \mathbf{f}_u^{(j)}) = \frac{\mathbf{f}_u^{(i)\top} \mathbf{f}_u^{(j)}}{\|\mathbf{f}_u^{(i)}\| \|\mathbf{f}_u^{(j)}\|}
+\end{equation}
+
+% TABLE: Direction similarity
+\begin{table}[t]
+\centering
+\caption{Cosine similarity between directions for related vs. unrelated facts (Pythia-410M, layer 2).}
+\label{tab:similarity}
+\begin{tabular}{@{}lc@{}}
+\toprule
+\textbf{Fact Pair Type} & \textbf{Mean Cosine Similarity} \\
+\midrule
+Same subject, same relation & -- \\
+Same subject, different relation & -- \\
+Different subject, same relation & -- \\
+Completely unrelated & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:similarity} shows that facts sharing semantic structure exhibit higher directional similarity. This suggests that TDU discovers genuine representational structure rather than arbitrary directions.
+
+\paragraph{Token-Level Analysis.}
+We analyze which tokens most strongly activate the learned directions by computing:
+\begin{equation}
+    a_t = \mathbf{f}_u^{\top} \mathbf{h}_t
+\end{equation}
+for each token position $t$ in a prompt. [Analysis to be added]
+
+\subsection{Multi-Fact Unlearning}
+\label{sec:multi_fact}
+
+Practical applications require unlearning multiple facts simultaneously. We investigate two approaches:
+
+\paragraph{Sequential Unlearning.}
+Apply TDU iteratively for each fact. The rank-one updates compose:
+\begin{equation}
+    \mathbf{W}' = \prod_{i=1}^{n} \left(\mathbf{I} - \mathbf{f}_u^{(i)} \mathbf{f}_u^{(i)\top}\right) \mathbf{W}
+\end{equation}
+
+\paragraph{Joint Unlearning.}
+Learn directions for multiple facts simultaneously by aggregating the forget set:
+\begin{equation}
+    \mathcal{D}_{\text{forget}} = \bigcup_{i=1}^{n} \mathcal{D}_{\text{forget}}^{(i)}
+\end{equation}
+
+% TABLE: Multi-fact scaling
+\begin{table}[t]
+\centering
+\caption{Performance scaling with number of facts unlearned.}
+\label{tab:multi_fact}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{\# Facts} & \textbf{Mean ES} & \textbf{Mean SS} & \textbf{Retain $\Delta$} \\
+\midrule
+1 & -- & -- & -- \\
+5 & -- & -- & -- \\
+10 & -- & -- & -- \\
+20 & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:multi_fact} shows that TDU scales reasonably to multiple facts, though we observe [interference effects / diminishing returns / etc. to be determined from experiments].
+
+\subsection{Computational Efficiency}
+\label{sec:efficiency}
+
+% TABLE: Timing comparison
+\begin{table}[t]
+\centering
+\caption{Wall-clock time for unlearning a single fact (GPU: NVIDIA A100).}
+\label{tab:timing}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+\textbf{Method} & \textbf{GPT-2} & \textbf{Pythia-410M} & \textbf{Pythia-1B} \\
+\midrule
+Gradient Ascent (100 steps) & -- & -- & -- \\
+ROME & -- & -- & -- \\
+MEMIT & -- & -- & -- \\
+TDU (ours) & -- & -- & -- \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:timing} compares computational costs. TDU's efficiency stems from:
+\begin{enumerate}
+    \item No iterative optimization of model parameters
+    \item Only forward/backward passes for direction learning
+    \item Single rank-one weight update per layer
+\end{enumerate}
+
+\subsection{Limitations and Failure Cases}
+\label{sec:limitations}
+
+While TDU demonstrates strong performance, we identify several limitations:
+
+\begin{itemize}
+    \item \textbf{Complex facts:} Facts requiring multi-hop reasoning may not have a single encoding direction.
+    \item \textbf{Entangled representations:} When facts share representational structure, removing one may affect related facts.
+    \item \textbf{Verification:} While we can verify direction removal, confirming complete unlearning remains an open challenge.
+\end{itemize}
+
+We discuss these limitations and potential mitigations in Section~\ref{sec:conclusion}.

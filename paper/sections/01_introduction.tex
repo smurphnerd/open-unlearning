@@ -1,0 +1,32 @@
+\section{Introduction}
+\label{sec:introduction}
+
+Large language models (LLMs) have demonstrated remarkable capabilities across a wide range of tasks, from question answering and code generation to complex reasoning. However, these models inevitably encode factual knowledge that may become outdated, contain sensitive personal information, or pose safety risks. The ability to selectively remove or modify specific knowledge from a trained model---without expensive retraining from scratch---has thus emerged as a critical capability for responsible deployment of LLMs.
+
+The need for targeted knowledge removal arises from multiple practical concerns. Privacy regulations such as GDPR establish a ``right to be forgotten,'' requiring systems to delete personal information upon request. Models may memorize copyrighted content, confidential data, or information that enables harmful applications. Furthermore, the factual knowledge encoded during training inevitably becomes stale: world leaders change, scientific understanding evolves, and corporate affiliations shift. In all these cases, practitioners require methods to surgically excise specific facts while preserving the model's broader capabilities.
+
+Existing approaches to knowledge editing and unlearning fall broadly into two categories. The first class of methods employs gradient-based fine-tuning, using carefully constructed loss functions to ``unlearn'' targeted information. While conceptually straightforward, these approaches suffer from several limitations: they require multiple optimization steps, risk catastrophic forgetting of unrelated knowledge, and provide little insight into how or where the target knowledge was stored. The optimization process treats the model as a black box, offering no guarantees about the completeness of removal or interpretability of the intervention.
+
+The second category comprises weight-editing methods such as ROME and MEMIT, which directly modify model parameters to insert, update, or remove factual associations. These methods identify specific layers where factual recall occurs and compute rank-one updates to the MLP weights. While more efficient than gradient-based approaches, they remain focused on editing the \emph{output} of factual queries rather than understanding the underlying \emph{representation} of facts within the model. The interventions are derived from input-output relationships and do not directly engage with the geometric structure of the model's internal representations.
+
+A significant gap thus exists in the current landscape: we lack methods that are simultaneously \emph{interpretable}, \emph{surgical}, and \emph{efficient}. An ideal unlearning method would identify precisely where and how a fact is encoded, remove it through a minimal and understandable intervention, and do so without iterative optimization or risk of collateral damage. Such a method would not only serve practical needs but also advance our scientific understanding of how LLMs represent knowledge.
+
+In this work, we introduce \textbf{Targeted Direction Unlearning (TDU)}, a novel approach that addresses these desiderata. TDU is grounded in the linear representation hypothesis---the empirical observation that many concepts and features are encoded as directions in a model's activation space. We hypothesize that specific factual associations similarly correspond to identifiable directions, and that projecting out these directions can selectively remove the associated knowledge.
+
+Our method proceeds in two stages. First, we \emph{discover} the direction in activation space that encodes a target fact. We achieve this by constructing contrastive prompts that isolate the factual association of interest and analyzing the resulting activation patterns. This yields an interpretable geometric object---a direction vector---that we can inspect, visualize, and validate. Second, we \emph{remove} the fact by applying a rank-one projection that orthogonalizes the relevant activation subspace with respect to the discovered direction. This intervention is surgical: it modifies the model's computations only along the specific direction associated with the target fact.
+
+TDU offers several advantages over existing approaches:
+
+\begin{itemize}
+    \item \textbf{Interpretability:} The discovered direction provides direct insight into how the model encodes the target fact. We can examine which tokens activate this direction, how it evolves across layers, and whether it generalizes across paraphrased queries.
+    
+    \item \textbf{Surgical precision:} The rank-one projection is a minimal intervention that affects only the subspace encoding the target fact. Unlike gradient-based methods, there is no optimization that might inadvertently modify unrelated knowledge.
+    
+    \item \textbf{Efficiency:} TDU requires only forward passes to discover the direction and a single weight modification to implement the projection. No iterative optimization is needed, making the method substantially faster than fine-tuning approaches.
+    
+    \item \textbf{Verifiability:} Because the intervention is geometrically interpretable, we can verify its effects through activation analysis. We can confirm that the target direction has been nullified while other directions remain intact.
+\end{itemize}
+
+We evaluate TDU on standard knowledge unlearning benchmarks, measuring both the efficacy of fact removal and the preservation of unrelated capabilities. Our experiments demonstrate that TDU achieves competitive unlearning performance while providing unprecedented interpretability into the removal process. We further analyze the discovered directions, revealing insights into how factual knowledge is organized within LLM representations.
+
+The remainder of this paper is organized as follows. Section~\ref{sec:related} surveys related work on knowledge editing, unlearning, and representation analysis in LLMs. Section~\ref{sec:method} presents the TDU method in detail, including our direction discovery procedure and projection-based removal mechanism. Section~\ref{sec:experiments} describes our experimental setup and presents results on unlearning benchmarks. Section~\ref{sec:analysis} provides interpretability analyses of the discovered directions. Finally, Section~\ref{sec:conclusion} discusses limitations and directions for future work.

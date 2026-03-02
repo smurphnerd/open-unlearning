@@ -1,0 +1,159 @@
+\section{Method}
+\label{sec:method}
+
+We present \emph{Targeted Direction Unlearning} (TDU), a method for selectively removing factual knowledge from large language models through learned directional interventions. Our approach is grounded in the linear representation hypothesis~\citep{park2023linear,nanda2023emergent}, which posits that concepts are encoded as directions in neural network activation spaces. We exploit this structure to identify and ablate the specific directions responsible for encoding targeted facts.
+
+\subsection{Problem Formulation}
+\label{sec:problem}
+
+Consider a pretrained language model $\mathcal{M}$ with parameters $\bm{\theta}$ consisting of $L$ transformer layers. Let $\mathcal{D}_{\text{forget}} = \{(x_i, y_i)\}_{i=1}^{N_f}$ denote the \emph{forget set}---a collection of prompt-completion pairs representing factual knowledge to be removed. Similarly, let $\mathcal{D}_{\text{retain}} = \{(x_j, y_j)\}_{j=1}^{N_r}$ denote the \emph{retain set}, representing knowledge and capabilities that must be preserved.
+
+The objective of targeted unlearning is to produce modified parameters $\bm{\theta}'$ such that:
+\begin{enumerate}
+    \item \textbf{Forgetting:} The model can no longer generate or assign high probability to targets in $\mathcal{D}_{\text{forget}}$.
+    \item \textbf{Retention:} Model behavior on $\mathcal{D}_{\text{retain}}$ (and general capabilities) remains unchanged.
+\end{enumerate}
+
+We focus on factual associations of the form $(s, r, o)$ representing subject-relation-object triples (e.g., ``The Eiffel Tower is located in Paris''). Following prior work on knowledge localization~\citep{meng2022locating,geva2023dissecting}, we hypothesize that such facts are primarily encoded in the MLP sublayers of transformer blocks, where the output activations contain linearly separable directions corresponding to specific factual content.
+
+\subsection{Directional Intervention Framework}
+\label{sec:direction}
+
+The core insight of TDU is that removing a fact corresponds to ablating a specific direction in the MLP output space. For each layer $\ell \in \{1, \ldots, L\}$, let $\mathbf{h}^{(\ell)} \in \mathbb{R}^d$ denote the MLP output activation at a given token position, where $d$ is the model's hidden dimension.
+
+We seek to learn a unit vector $\mathbf{f}_u^{(\ell)} \in \mathbb{R}^d$ (with $\|\mathbf{f}_u^{(\ell)}\|_2 = 1$) that captures the direction encoding the targeted fact at layer $\ell$. The intervention operation projects out this direction from the MLP output:
+\begin{equation}
+    \tilde{\mathbf{h}}^{(\ell)} = \mathbf{h}^{(\ell)} - \left(\mathbf{f}_u^{(\ell)\top} \mathbf{h}^{(\ell)}\right) \mathbf{f}_u^{(\ell)} = \left(\mathbf{I} - \mathbf{f}_u^{(\ell)} \mathbf{f}_u^{(\ell)\top}\right) \mathbf{h}^{(\ell)}
+    \label{eq:projection}
+\end{equation}
+where $\mathbf{I} \in \mathbb{R}^{d \times d}$ is the identity matrix. This orthogonal projection removes the component of $\mathbf{h}^{(\ell)}$ lying along $\mathbf{f}_u^{(\ell)}$ while preserving all orthogonal components.
+
+\paragraph{Learning the Direction.}
+We parameterize $\mathbf{f}_u^{(\ell)}$ as a learnable vector and optimize it to maximize the forgetting effect while minimizing collateral damage. Let $\mathcal{L}(x, y; \bm{\theta})$ denote the cross-entropy loss of the model on input-target pair $(x, y)$. We define two loss terms:
+
+\textbf{Intervened loss} $\mathcal{L}_{\text{int}}$: The loss computed with directional interventions applied:
+\begin{equation}
+    \mathcal{L}_{\text{int}}(x, y) = \mathcal{L}\left(x, y; \bm{\theta}, \{\mathbf{f}_u^{(\ell)}\}_{\ell=1}^L\right)
+\end{equation}
+where the notation indicates that Equation~\ref{eq:projection} is applied at each layer during the forward pass.
+
+\textbf{Base loss} $\mathcal{L}_{\text{base}}$: The standard loss without intervention:
+\begin{equation}
+    \mathcal{L}_{\text{base}}(x, y) = \mathcal{L}(x, y; \bm{\theta})
+\end{equation}
+
+The training objective for the direction vectors is:
+\begin{equation}
+    \mathcal{L}_{\text{TDU}} = -\underbrace{\mathbb{E}_{(x,y) \sim \mathcal{D}_{\text{forget}}}\left[\mathcal{L}_{\text{int}}(x, y) - \mathcal{L}_{\text{base}}(x, y)\right]}_{\text{forgetting term}} + \lambda \underbrace{\mathbb{E}_{(x,y) \sim \mathcal{D}_{\text{retain}}}\left|\mathcal{L}_{\text{int}}(x, y) - \mathcal{L}_{\text{base}}(x, y)\right|}_{\text{retention term}}
+    \label{eq:loss}
+\end{equation}
+
+The forgetting term encourages the intervention to \emph{increase} the loss on forget examples (the negative sign converts maximization to minimization). The retention term penalizes \emph{any change} to the loss on retain examples, using absolute value to penalize both increases and decreases. The hyperparameter $\lambda > 0$ controls the trade-off between forgetting efficacy and retention fidelity.
+
+\paragraph{Optimization.}
+We initialize each $\mathbf{f}_u^{(\ell)}$ as a random unit vector and optimize using gradient descent with respect to the direction vectors only (the model parameters $\bm{\theta}$ remain frozen during this phase). After each optimization step, we re-normalize to maintain the unit norm constraint:
+\begin{equation}
+    \mathbf{f}_u^{(\ell)} \leftarrow \frac{\mathbf{f}_u^{(\ell)}}{\|\mathbf{f}_u^{(\ell)}\|_2}
+\end{equation}
+
+This process typically converges within 100--500 gradient steps, requiring only forward and backward passes through the model without any parameter updates to $\bm{\theta}$.
+
+\subsection{Layer-wise Attribution}
+\label{sec:attribution}
+
+Not all layers contribute equally to encoding a given fact. To identify the most relevant layers for intervention, we employ two complementary attribution methods.
+
+\paragraph{Gradient-based Attribution.}
+After jointly optimizing $\{\mathbf{f}_u^{(\ell)}\}_{\ell=1}^L$, we compute the gradient norm of the loss with respect to each layer's direction vector:
+\begin{equation}
+    \alpha^{(\ell)}_{\text{grad}} = \left\|\frac{\partial \mathcal{L}_{\text{TDU}}}{\partial \mathbf{f}_u^{(\ell)}}\right\|_2
+    \label{eq:grad_attr}
+\end{equation}
+
+Layers with larger gradient norms are more sensitive to changes in the direction vector, indicating greater involvement in encoding the target fact. This method is computationally efficient as it requires only a single backward pass.
+
+\paragraph{Ablation-based Attribution.}
+For more precise localization, we measure the causal effect of intervening at each layer independently. For layer $\ell$, we compute:
+\begin{equation}
+    \alpha^{(\ell)}_{\text{abl}} = \mathbb{E}_{(x,y) \sim \mathcal{D}_{\text{forget}}}\left[\mathcal{L}_{\text{int}}^{(\ell)}(x, y) - \mathcal{L}_{\text{base}}(x, y)\right]
+    \label{eq:abl_attr}
+\end{equation}
+where $\mathcal{L}_{\text{int}}^{(\ell)}$ denotes the loss when the projection intervention is applied \emph{only} at layer $\ell$. Layers yielding larger loss increases are more critical for the factual association.
+
+\paragraph{Layer Selection.}
+Given attribution scores, we select the top-$k$ layers $\mathcal{S} = \{s_1, \ldots, s_k\}$ for the final weight edit. In practice, we find that $k \in \{1, 3, 5\}$ suffices for most facts, with diminishing returns for larger $k$. The sparsity of effective layers aligns with prior findings on knowledge localization in transformers~\citep{meng2022locating}.
+
+\subsection{Permanent Weight Editing}
+\label{sec:edit}
+
+The directional intervention described in Section~\ref{sec:direction} operates at inference time by modifying activations. To achieve permanent unlearning without inference overhead, we translate the learned directions into direct weight modifications.
+
+Consider the MLP output projection matrix $\mathbf{W}_{\text{out}}^{(\ell)} \in \mathbb{R}^{d \times d_{\text{mlp}}}$ at layer $\ell$, which projects from the MLP hidden dimension to the residual stream. The activation $\mathbf{h}^{(\ell)}$ can be written as:
+\begin{equation}
+    \mathbf{h}^{(\ell)} = \mathbf{W}_{\text{out}}^{(\ell)} \mathbf{m}^{(\ell)}
+\end{equation}
+where $\mathbf{m}^{(\ell)} \in \mathbb{R}^{d_{\text{mlp}}}$ is the MLP hidden activation (after the nonlinearity).
+
+Substituting into Equation~\ref{eq:projection}, the intervened activation becomes:
+\begin{equation}
+    \tilde{\mathbf{h}}^{(\ell)} = \left(\mathbf{I} - \mathbf{f}_u^{(\ell)} \mathbf{f}_u^{(\ell)\top}\right) \mathbf{W}_{\text{out}}^{(\ell)} \mathbf{m}^{(\ell)}
+\end{equation}
+
+This is equivalent to replacing the weight matrix with:
+\begin{equation}
+    \tilde{\mathbf{W}}_{\text{out}}^{(\ell)} = \left(\mathbf{I} - \mathbf{f}_u^{(\ell)} \mathbf{f}_u^{(\ell)\top}\right) \mathbf{W}_{\text{out}}^{(\ell)} = \mathbf{W}_{\text{out}}^{(\ell)} - \mathbf{f}_u^{(\ell)} \left(\mathbf{f}_u^{(\ell)\top} \mathbf{W}_{\text{out}}^{(\ell)}\right)
+    \label{eq:weight_edit}
+\end{equation}
+
+This constitutes a rank-one update to the weight matrix. The edit is applied only to layers in the selected set $\mathcal{S}$:
+\begin{equation}
+    \mathbf{W}_{\text{out}}^{(\ell)} \leftarrow 
+    \begin{cases}
+        \tilde{\mathbf{W}}_{\text{out}}^{(\ell)} & \text{if } \ell \in \mathcal{S} \\
+        \mathbf{W}_{\text{out}}^{(\ell)} & \text{otherwise}
+    \end{cases}
+\end{equation}
+
+\paragraph{Properties of the Edit.}
+The weight modification in Equation~\ref{eq:weight_edit} has several desirable properties:
+\begin{itemize}
+    \item \textbf{Rank-one structure:} The update $\Delta \mathbf{W} = \mathbf{f}_u^{(\ell)} \left(\mathbf{f}_u^{(\ell)\top} \mathbf{W}_{\text{out}}^{(\ell)}\right)$ has rank one, minimizing the perturbation to the weight matrix.
+    \item \textbf{Orthogonal projection:} The matrix $\mathbf{P} = \mathbf{I} - \mathbf{f}_u^{(\ell)} \mathbf{f}_u^{(\ell)\top}$ is an orthogonal projector ($\mathbf{P}^2 = \mathbf{P}$, $\mathbf{P}^\top = \mathbf{P}$), ensuring idempotent and symmetric modification.
+    \item \textbf{Composability:} Multiple facts can be unlearned sequentially by applying successive projections, though we note that exact orthogonality is preserved only when the direction vectors are mutually orthogonal.
+\end{itemize}
+
+\subsection{Algorithm Summary}
+\label{sec:algorithm}
+
+The complete TDU procedure consists of three phases:
+
+\begin{center}
+\fbox{\parbox{0.9\textwidth}{
+\textbf{Algorithm: Targeted Direction Unlearning (TDU)}\\[0.5em]
+\textbf{Input:} Model $\mathcal{M}$ with parameters $\bm{\theta}$, forget set $\mathcal{D}_{\text{forget}}$, retain set $\mathcal{D}_{\text{retain}}$, retention weight $\lambda$, layers to edit $k$, learning rate $\eta$, iterations $T$\\
+\textbf{Output:} Modified parameters $\bm{\theta}'$\\[0.5em]
+\textbf{Phase 1: Direction Learning}
+\begin{enumerate}
+    \item Initialize $\{\mathbf{f}_u^{(\ell)}\}_{\ell=1}^L$ as random unit vectors
+    \item For $t = 1, \ldots, T$:
+    \begin{enumerate}
+        \item Sample batches from $\mathcal{D}_{\text{forget}}$ and $\mathcal{D}_{\text{retain}}$
+        \item Compute $\mathcal{L}_{\text{TDU}}$ via Equation~\ref{eq:loss}
+        \item Update: $\mathbf{f}_u^{(\ell)} \leftarrow \mathbf{f}_u^{(\ell)} - \eta \nabla_{\mathbf{f}_u^{(\ell)}} \mathcal{L}_{\text{TDU}}$
+        \item Re-normalize: $\mathbf{f}_u^{(\ell)} \leftarrow \mathbf{f}_u^{(\ell)} / \|\mathbf{f}_u^{(\ell)}\|_2$
+    \end{enumerate}
+\end{enumerate}
+\textbf{Phase 2: Layer Attribution}
+\begin{enumerate}
+    \item Compute scores $\{\alpha^{(\ell)}\}_{\ell=1}^L$ via Eq.~\ref{eq:grad_attr} or \ref{eq:abl_attr}
+    \item Select top-$k$ layers: $\mathcal{S} \leftarrow \text{argtop}_k(\{\alpha^{(\ell)}\})$
+\end{enumerate}
+\textbf{Phase 3: Weight Editing}
+\begin{enumerate}
+    \item For each $\ell \in \mathcal{S}$: $\mathbf{W}_{\text{out}}^{(\ell)} \leftarrow \left(\mathbf{I} - \mathbf{f}_u^{(\ell)} \mathbf{f}_u^{(\ell)\top}\right) \mathbf{W}_{\text{out}}^{(\ell)}$
+\end{enumerate}
+}}
+\end{center}
+
+\paragraph{Computational Complexity.}
+The direction learning phase requires $\mathcal{O}(T)$ forward-backward passes through the model, where $T$ is typically 100--500. Each pass has complexity comparable to standard inference, with negligible overhead from the projection operations. The attribution phase requires either one backward pass (gradient-based) or $L$ forward passes (ablation-based). The weight editing phase involves $k$ rank-one matrix updates, each requiring $\mathcal{O}(d \cdot d_{\text{mlp}})$ operations. The total computational cost is thus dominated by the direction learning phase and is orders of magnitude smaller than fine-tuning-based unlearning methods.

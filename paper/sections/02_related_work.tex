@@ -1,0 +1,28 @@
+\section{Related Work}
+\label{sec:related_work}
+
+Our work draws on four main research areas: knowledge editing, machine unlearning, mechanistic interpretability, and sparse feature discovery. We position TDU at the intersection of these fields, leveraging interpretability insights to achieve efficient, targeted unlearning.
+
+\subsection{Knowledge Editing in LLMs}
+
+Knowledge editing methods aim to modify specific facts stored in language models without full retraining. \citet{meng2022locating} introduced ROME (Rank-One Model Editing), which uses causal tracing to identify that factual associations are primarily stored in middle-layer MLP modules. ROME then performs a rank-one update to the MLP weights to overwrite targeted facts. \citet{meng2023massediting} extended this to MEMIT (Mass-Editing Memory in Transformers), enabling simultaneous editing of thousands of facts by distributing updates across multiple layers.
+
+While these methods achieve precise factual modifications, they have notable limitations. First, they require identifying the exact layer(s) where a fact is stored, which can vary across facts and models. Second, the weight modifications are not inherently interpretable---it is difficult to verify what other behaviors may be affected. Third, these methods are designed for editing rather than removal; adapting them to unlearning requires careful consideration of what the ``new'' fact should be. Our approach sidesteps these issues by operating in activation space rather than weight space, providing both interpretability and flexibility.
+
+\subsection{Machine Unlearning}
+
+Machine unlearning seeks to remove the influence of specific training data from a model \citep{bourtoule2021machine, cao2015towards}. For LLMs, common approaches include gradient ascent on the forget set \citep{jang2023knowledge, yao2024large}, which maximizes loss on targeted examples to ``unlearn'' them. Other methods employ fine-tuning on retain sets \citep{maini2024tofu}, knowledge distillation from a model without the target data \citep{chundawat2023can}, or preference optimization to steer away from undesired outputs \citep{zhang2024negative}.
+
+These approaches face a fundamental tension: aggressive unlearning damages general model capabilities, while conservative unlearning leaves residual knowledge. Gradient-based methods are particularly prone to catastrophic forgetting on retain sets \citep{shi2024muse}. Moreover, most unlearning methods require multiple training epochs, making them computationally expensive. TDU addresses these challenges through targeted intervention on specific directions, enabling surgical removal with minimal collateral damage and no gradient-based optimization at inference time.
+
+\subsection{Mechanistic Interpretability}
+
+Mechanistic interpretability aims to reverse-engineer neural network computations into human-understandable components \citep{olah2020zoom, elhage2021mathematical}. Key techniques include activation patching \citep{vig2020investigating, meng2022locating}, which isolates the causal effect of specific activations by transplanting them between forward passes, and causal tracing \citep{pearl2009causality, meng2022locating}, which tracks how information flows through the network.
+
+A central finding is the linear representation hypothesis: neural networks often encode high-level concepts as directions in activation space \citep{mikolov2013linguistic, park2023linear, nanda2023emergent}. This has been demonstrated for diverse concepts including sentiment \citep{tigges2023linear}, truthfulness \citep{marks2023geometry, li2024inference}, and factual associations \citep{hernandez2024linearity, geva2023dissecting}. Our method directly leverages this insight---if facts are encoded as directions, we can identify and suppress these directions to achieve unlearning. TDU's $\mathbf{f}_u$ vectors can be viewed as learned ``fact directions'' optimized specifically for removal.
+
+\subsection{Sparse Autoencoders and Feature Discovery}
+
+Sparse autoencoders (SAEs) have emerged as a powerful tool for discovering interpretable features in neural network activations \citep{cunningham2023sparse, bricken2023monosemanticity}. SAEs learn overcomplete dictionaries where each dictionary element ideally corresponds to an interpretable concept, with activations decomposed as sparse combinations of these features. This approach has revealed interpretable features for diverse concepts ranging from syntax to world knowledge \citep{templeton2024scaling, gao2024scaling}.
+
+Our unlearning directions $\mathbf{f}_u$ share conceptual similarities with SAE features: both are directions in activation space that capture specific semantic content. However, while SAE features emerge from unsupervised reconstruction objectives, our directions are optimized explicitly for targeted fact removal. This task-specific optimization allows $\mathbf{f}_u$ to capture precisely the components relevant for unlearning, potentially spanning multiple SAE features or capturing aspects that SAEs miss. Furthermore, our directions require no auxiliary decoder network and can be applied efficiently at inference time through simple projection operations.
