@@ -27,7 +27,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 
 # Add src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
+src_path = str(Path(__file__).parent.parent / "src")
+sys.path.insert(0, src_path)
+print(f"Added to path: {src_path}")
 
 
 def load_model_and_tokenizer(model_name: str, device: str = "cuda"):
