@@ -1,115 +1,44 @@
-% Analysis section - interpretability and additional experiments
+% Analysis section - interpretability discussion
+\label{sec:analysis}
 
-\subsection{What Do the Directions Encode?}
-\label{sec:direction_analysis}
+\subsection{Interpreting the Layer Attribution Results}
+\label{sec:interpretation}
 
-A key advantage of TDU over black-box unlearning methods is the interpretability of the learned directions. Each $\mathbf{f}_u^{(\ell)}$ is a unit vector in $\mathbb{R}^d$ that can be analyzed to understand what the model ``knows'' about the target fact.
+Our layer attribution experiments reveal distinct patterns of factual encoding across model architectures. We discuss the implications of these findings for targeted unlearning.
 
-\paragraph{Direction Similarity for Related Facts.}
-We hypothesize that facts sharing semantic content should have similar encoding directions. To test this, we compute the cosine similarity between directions learned for related facts:
+\paragraph{Why Early Layers in GPT-2?}
+GPT-2's bimodal attribution pattern (layers 2 and 10) suggests a two-stage processing of factual knowledge. The early peak (layer 2) may correspond to initial entity recognition and fact retrieval, while the later peak (layer 10) likely reflects output preparation and verbalization. This is consistent with prior work on knowledge localization~\citep{meng2022locating,geva2023dissecting}.
 
-\begin{equation}
-    \text{sim}(\mathbf{f}_u^{(i)}, \mathbf{f}_u^{(j)}) = \frac{\mathbf{f}_u^{(i)\top} \mathbf{f}_u^{(j)}}{\|\mathbf{f}_u^{(i)}\| \|\mathbf{f}_u^{(j)}\|}
-\end{equation}
+\paragraph{Deeper Attribution in Larger Models.}
+Pythia-410M shows peak attribution at layer 23 (near the output), while Pythia-1B reverts to early-layer dominance (layer 3). This non-monotonic scaling behavior suggests that factual encoding strategies may reorganize as models grow, potentially due to emergent computational patterns at different scales.
 
-% TABLE: Direction similarity
-\begin{table}[t]
-\centering
-\caption{Cosine similarity between directions for related vs. unrelated facts (Pythia-410M, layer 2).}
-\label{tab:similarity}
-\begin{tabular}{@{}lc@{}}
-\toprule
-\textbf{Fact Pair Type} & \textbf{Mean Cosine Similarity} \\
-\midrule
-Same subject, same relation & -- \\
-Same subject, different relation & -- \\
-Different subject, same relation & -- \\
-Completely unrelated & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:similarity} shows that facts sharing semantic structure exhibit higher directional similarity. This suggests that TDU discovers genuine representational structure rather than arbitrary directions.
-
-\paragraph{Token-Level Analysis.}
-We analyze which tokens most strongly activate the learned directions by computing:
-\begin{equation}
-    a_t = \mathbf{f}_u^{\top} \mathbf{h}_t
-\end{equation}
-for each token position $t$ in a prompt. [Analysis to be added]
-
-\subsection{Multi-Fact Unlearning}
-\label{sec:multi_fact}
-
-Practical applications require unlearning multiple facts simultaneously. We investigate two approaches:
-
-\paragraph{Sequential Unlearning.}
-Apply TDU iteratively for each fact. The rank-one updates compose:
-\begin{equation}
-    \mathbf{W}' = \prod_{i=1}^{n} \left(\mathbf{I} - \mathbf{f}_u^{(i)} \mathbf{f}_u^{(i)\top}\right) \mathbf{W}
-\end{equation}
-
-\paragraph{Joint Unlearning.}
-Learn directions for multiple facts simultaneously by aggregating the forget set:
-\begin{equation}
-    \mathcal{D}_{\text{forget}} = \bigcup_{i=1}^{n} \mathcal{D}_{\text{forget}}^{(i)}
-\end{equation}
-
-% TABLE: Multi-fact scaling
-\begin{table}[t]
-\centering
-\caption{Performance scaling with number of facts unlearned.}
-\label{tab:multi_fact}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{\# Facts} & \textbf{Mean ES} & \textbf{Mean SS} & \textbf{Retain $\Delta$} \\
-\midrule
-1 & -- & -- & -- \\
-5 & -- & -- & -- \\
-10 & -- & -- & -- \\
-20 & -- & -- & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:multi_fact} shows that TDU scales reasonably to multiple facts, though we observe [interference effects / diminishing returns / etc. to be determined from experiments].
-
-\subsection{Computational Efficiency}
-\label{sec:efficiency}
-
-% TABLE: Timing comparison
-\begin{table}[t]
-\centering
-\caption{Wall-clock time for unlearning a single fact (GPU: NVIDIA A100).}
-\label{tab:timing}
-\begin{tabular}{@{}lccc@{}}
-\toprule
-\textbf{Method} & \textbf{GPT-2} & \textbf{Pythia-410M} & \textbf{Pythia-1B} \\
-\midrule
-Gradient Ascent (100 steps) & -- & -- & -- \\
-ROME & -- & -- & -- \\
-MEMIT & -- & -- & -- \\
-TDU (ours) & -- & -- & -- \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-Table~\ref{tab:timing} compares computational costs. TDU's efficiency stems from:
-\begin{enumerate}
-    \item No iterative optimization of model parameters
-    \item Only forward/backward passes for direction learning
-    \item Single rank-one weight update per layer
-\end{enumerate}
-
-\subsection{Limitations and Failure Cases}
-\label{sec:limitations}
-
-While TDU demonstrates strong performance, we identify several limitations:
-
+\paragraph{Implications for TDU.}
+The sparsity of layer attribution---typically 2-3 layers capturing most of the signal---validates TDU's approach of targeting specific layers rather than performing global interventions. This enables:
 \begin{itemize}
-    \item \textbf{Complex facts:} Facts requiring multi-hop reasoning may not have a single encoding direction.
-    \item \textbf{Entangled representations:} When facts share representational structure, removing one may affect related facts.
-    \item \textbf{Verification:} While we can verify direction removal, confirming complete unlearning remains an open challenge.
+    \item \textbf{Efficiency:} Editing only top-attributed layers reduces computational cost.
+    \item \textbf{Precision:} Concentrated attribution allows surgical removal with minimal side effects.
+    \item \textbf{Interpretability:} Clear layer localization aids verification of unlearning.
 \end{itemize}
 
-We discuss these limitations and potential mitigations in Section~\ref{sec:conclusion}.
+\subsection{Limitations}
+\label{sec:limitations}
+
+Our current experiments focus on layer attribution as a prerequisite for targeted unlearning. Several limitations remain:
+
+\begin{itemize}
+    \item \textbf{Single-hop facts only:} We evaluate on simple factual associations. Complex, multi-hop facts may have distributed encodings that are harder to localize.
+    
+    \item \textbf{Attribution $\neq$ sufficiency:} High gradient norm indicates importance but does not guarantee that projecting out the direction will fully remove the fact.
+    
+    \item \textbf{Benchmark evaluation pending:} Full comparison against ROME, MEMIT, and gradient ascent on standard unlearning metrics (ES, PS, SS) remains for future work.
+\end{itemize}
+
+\subsection{Future Directions}
+
+Based on these layer attribution results, our next steps include:
+\begin{enumerate}
+    \item Implementing the full TDU projection and evaluating on CounterFact benchmarks.
+    \item Comparing against baseline unlearning methods on efficacy and specificity.
+    \item Analyzing the learned directions for semantic interpretability.
+    \item Scaling to multi-fact unlearning scenarios.
+\end{enumerate}

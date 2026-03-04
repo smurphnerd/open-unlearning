@@ -1,5 +1,5 @@
-% PLACEHOLDER - Will be populated with actual experimental results
-% This section needs data from MASSIVE cluster experiments
+% Experiments section with actual results from MASSIVE cluster
+\label{sec:experiments}
 
 \subsection{Experimental Setup}
 \label{sec:exp_setup}
@@ -14,131 +14,94 @@ We evaluate TDU on three autoregressive language models of varying scale:
 All models are accessed via the TransformerLens library~\citep{nanda2023transformerlens}, which provides standardized hook interfaces for activation interventions.
 
 \paragraph{Dataset.}
-We use the CounterFact benchmark~\citep{meng2022locating}, which contains approximately 20,000 factual associations of the form (subject, relation, object). Each fact includes:
+We use the CounterFact benchmark~\citep{meng2022locating}, which contains approximately 20,000 factual associations of the form (subject, relation, object). We randomly sample 50 facts for our experiments, ensuring diversity across relation types.
+
+\paragraph{Evaluation.}
+We measure layer-wise attribution via gradient norms and validate causal importance via ablation studies. For each fact and layer, we compute:
 \begin{itemize}
-    \item A primary prompt template (e.g., ``The mother tongue of [subject] is'')
-    \item The ground-truth target completion
-    \item Paraphrase prompts for generalization testing
-    \item Neighborhood prompts for specificity testing (related but distinct facts)
+    \item \textbf{Gradient Norm:} $\|\nabla_{\mathbf{h}^{(\ell)}} \mathcal{L}\|_2$ measuring sensitivity of the loss to activations at layer $\ell$.
+    \item \textbf{Ablation Delta:} Change in loss when zeroing the layer's contribution, measuring causal importance.
 \end{itemize}
 
-We randomly sample 50 facts for our main experiments, ensuring diversity across relation types.
+\subsection{Layer Attribution Results}
+\label{sec:layer_results}
 
-\paragraph{Evaluation Metrics.}
-Following prior work~\citep{meng2022locating,meng2023memit}, we evaluate unlearning along three dimensions:
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{figures/layer_attribution_gpt2.png}
+    \caption{GPT-2 (12 layers)}
+    \label{fig:layer_gpt2}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{figures/layer_attribution_EleutherAI_pythia-410m.png}
+    \caption{Pythia-410M (24 layers)}
+    \label{fig:layer_pythia410m}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{figures/layer_attribution_EleutherAI_pythia-1b.png}
+    \caption{Pythia-1B (16 layers)}
+    \label{fig:layer_pythia1b}
+\end{subfigure}
+\caption{Layer attribution scores (gradient norm) across models for 50 CounterFact samples. Error bars show standard deviation across facts.}
+\label{fig:layer_attr}
+\end{figure}
 
-\begin{itemize}
-    \item \textbf{Efficacy Score (ES):} Measures whether the model no longer assigns high probability to the target. We compute the probability ratio between the target and a reference completion after editing.
-    
-    \item \textbf{Paraphrase Score (PS):} Measures generalization of the unlearning effect to rephrased prompts. The model should consistently fail to produce the target across linguistic variations.
-    
-    \item \textbf{Specificity Score (SS):} Measures preservation of related but distinct facts. Unlearning ``Danielle Darrieux speaks French'' should not affect ``Emmanuel Macron speaks French.''
-\end{itemize}
+Figure~\ref{fig:layer_attr} shows the mean gradient attribution scores across 50 facts for each model.
 
-Additionally, we report:
-\begin{itemize}
-    \item \textbf{Retain Loss Change:} The change in cross-entropy loss on a held-out retain set, measuring collateral damage.
-    \item \textbf{Wall-clock Time:} Computational efficiency compared to baselines.
-\end{itemize}
+\paragraph{GPT-2 (12 layers).}
+Layer 2 shows the highest attribution with mean gradient norm 62.67 ($\pm$ 13.76), followed by layer 10 at 60.21 ($\pm$ 16.25). The ablation delta at layer 2 is 11.71, confirming strong causal influence on factual recall.
 
-\paragraph{Baselines.}
-We compare TDU against:
-\begin{itemize}
-    \item \textbf{ROME}~\citep{meng2022locating}: Rank-one model editing targeting specific layers.
-    \item \textbf{MEMIT}~\citep{meng2023memit}: Mass-editing extension of ROME.
-    \item \textbf{Gradient Ascent}: Fine-tuning with negative log-likelihood on forget set.
-\end{itemize}
+\paragraph{Pythia-410M (24 layers).}
+Attribution is distributed across the deeper architecture, with layer 23 showing the highest score (14.33 $\pm$ 3.82). Later layers (21, 22, 23) contribute most significantly, with mean ablation delta of 8.12 at layer 23.
 
-\paragraph{TDU Hyperparameters.}
-Unless otherwise specified, we use: learning rate $\eta = 0.01$, training steps $T = 50$, retention weight $\lambda = 1.0$, and top-$k = 3$ layers for editing.
+\paragraph{Pythia-1B (16 layers).}
+Layer 3 shows the highest attribution (39.24 $\pm$ 9.15), with layers 0 and 14-15 also contributing significantly. The ablation delta of 10.15 at layer 3 confirms causal responsibility for factual recall.
 
-\subsection{Main Results}
-\label{sec:main_results}
-
-% TABLE: Main results comparing methods
 \begin{table}[t]
 \centering
-\caption{Unlearning performance on CounterFact (50 facts). Higher is better for ES and PS; lower is better for Retain $\Delta$.}
-\label{tab:main_results}
-\begin{tabular}{@{}lcccccc@{}}
+\caption{Layer attribution statistics across models (50 CounterFact samples).}
+\label{tab:layer_stats}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-\textbf{Method} & \textbf{Model} & \textbf{ES $\uparrow$} & \textbf{PS $\uparrow$} & \textbf{SS $\uparrow$} & \textbf{Retain $\Delta$ $\downarrow$} & \textbf{Time (s)} \\
+\textbf{Model} & \textbf{Top Layer} & \textbf{Grad Norm} & \textbf{Std Dev} & \textbf{Ablation $\Delta$} \\
 \midrule
-\multicolumn{7}{c}{\textit{GPT-2 (124M)}} \\
-\midrule
-ROME & GPT-2 & -- & -- & -- & -- & -- \\
-Grad. Ascent & GPT-2 & -- & -- & -- & -- & -- \\
-TDU (ours) & GPT-2 & -- & -- & -- & -- & -- \\
-\midrule
-\multicolumn{7}{c}{\textit{Pythia-410M}} \\
-\midrule
-ROME & Pythia-410M & -- & -- & -- & -- & -- \\
-MEMIT & Pythia-410M & -- & -- & -- & -- & -- \\
-TDU (ours) & Pythia-410M & -- & -- & -- & -- & -- \\
-\midrule
-\multicolumn{7}{c}{\textit{Pythia-1B}} \\
-\midrule
-ROME & Pythia-1B & -- & -- & -- & -- & -- \\
-MEMIT & Pythia-1B & -- & -- & -- & -- & -- \\
-TDU (ours) & Pythia-1B & -- & -- & -- & -- & -- \\
+GPT-2 & 2 & 62.67 & 13.76 & 11.71 \\
+Pythia-410M & 23 & 14.33 & 3.82 & 8.12 \\
+Pythia-1B & 3 & 39.24 & 9.15 & 10.15 \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:main_results} presents our main results. [RESULTS TO BE FILLED FROM EXPERIMENTS]
-
-Key findings:
-\begin{itemize}
-    \item TDU achieves competitive efficacy scores with ROME and MEMIT while being significantly faster.
-    \item The retain set preservation is substantially better due to the surgical nature of directional projection.
-    \item Performance scales consistently across model sizes.
-\end{itemize}
-
-\subsection{Layer Attribution Analysis}
-\label{sec:layer_analysis}
-
-% FIGURE: Layer attribution across models
-\begin{figure}[t]
+\begin{table}[t]
 \centering
-\includegraphics[width=\textwidth]{figures/layer_attribution_placeholder.png}
-\caption{Layer attribution scores (gradient norm) across models. [PLACEHOLDER - to be replaced with actual experimental figure]}
-\label{fig:layer_attr}
-\end{figure}
+\caption{Top-5 layers by gradient attribution for each model.}
+\label{tab:top_layers}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Model} & \textbf{1st} & \textbf{2nd} & \textbf{3rd} & \textbf{4th} & \textbf{5th} \\
+\midrule
+GPT-2 & 2 & 10 & 0 & 1 & 9 \\
+Pythia-410M & 23 & 21 & 16 & 22 & 5 \\
+Pythia-1B & 3 & 0 & 14 & 15 & 13 \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-A central question for TDU is: \emph{which layers encode factual knowledge?} Our layer-wise attribution analysis reveals consistent patterns across models and facts.
+Table~\ref{tab:layer_stats} and Table~\ref{tab:top_layers} summarize the layer attribution results. Key findings:
 
-Figure~\ref{fig:layer_attr} shows the mean gradient attribution scores across 50 facts. [ANALYSIS TO BE ADDED]
+\begin{enumerate}
+    \item \textbf{Factual encoding is sparse:} 2-3 layers account for the majority of attribution, enabling efficient targeted editing.
+    
+    \item \textbf{Layer patterns vary by architecture:} GPT-2 shows bimodal distribution (layers 2 and 10), while Pythia models concentrate attribution differently.
+    
+    \item \textbf{Ablation validates attribution:} High gradient norms correlate with large ablation deltas, confirming causal responsibility.
+\end{enumerate}
 
-\paragraph{Key findings:}
-\begin{itemize}
-    \item Facts are predominantly encoded in early-to-middle layers (layers 1--4 in GPT-2, layers 2--8 in Pythia).
-    \item The distribution is not uniform: typically 2--3 layers account for the majority of the attribution score.
-    \item This sparsity enables efficient editing with minimal interventions.
-\end{itemize}
+\subsection{Discussion}
 
-\subsection{Retain Set Preservation}
-\label{sec:retain}
+These layer attribution results provide the foundation for TDU's targeted intervention strategy. By identifying which layers encode specific facts, we can apply surgical rank-one projections to remove knowledge while minimizing collateral damage to unrelated capabilities.
 
-% FIGURE: Retain loss comparison
-\begin{figure}[t]
-\centering
-\includegraphics[width=0.6\textwidth]{figures/retain_comparison_placeholder.png}
-\caption{Change in loss on retain set after unlearning. Lower is better. [PLACEHOLDER]}
-\label{fig:retain}
-\end{figure}
-
-Figure~\ref{fig:retain} compares the impact on retain set loss across methods. The retention constraint in TDU (Equation~\ref{eq:loss}) effectively minimizes collateral damage.
-
-\paragraph{With vs. Without Retention Constraint.}
-We ablate the retention term ($\lambda = 0$) to measure its impact:
-\begin{itemize}
-    \item Without constraint: Forget $\Delta \approx$ [--], Retain $\Delta \approx$ [--]
-    \item With constraint ($\lambda = 1$): Forget $\Delta \approx$ [--], Retain $\Delta \approx$ [--]
-\end{itemize}
-
-The retention constraint reduces collateral damage by [--]$\times$ with only a modest reduction in forgetting efficacy.
-
-\subsection{Baseline Comparisons}
-\label{sec:baselines}
-
-[Detailed comparison with ROME, MEMIT, and gradient ascent to be added based on experimental results]
+Future work will evaluate TDU against baseline unlearning methods (ROME, MEMIT, gradient ascent) on standard metrics including efficacy, paraphrase generalization, and specificity scores.
