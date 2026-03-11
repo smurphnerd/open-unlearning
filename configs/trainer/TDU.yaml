@@ -4,16 +4,21 @@ defaults:
 handler: TDU
 method_args:
   # Target modules for direction finding (layer names containing these strings)
+  # Both MLP and attention output projections write to the residual stream
   target_modules:
     - "mlp.down_proj"
-  
+    - "self_attn.o_proj"
+
   # Phase 1: Direction finding
   direction_lr: 0.01
   direction_steps: 100
   lambda_retain: 1.0
   lambda_norm: 10.0
   use_renormalization: true
-  
+
+  # Data sampling for direction finding
+  num_batches: 10  # Number of batches to accumulate for direction optimization
+
   # Multi-direction support (for concepts that span multiple dimensions)
   multi_direction: false
   max_directions: 3
