@@ -120,8 +120,9 @@ class TDU(GradDiff):
                 def hook(mod, input, output):
                     # output shape: (batch, seq, hidden)
                     # direction shape: (hidden,)
-                    projection = torch.einsum("bsh,h->bs", output, direction)
-                    return output - torch.einsum("bs,h->bsh", projection, direction)
+                    d = direction.to(output.dtype)
+                    projection = torch.einsum("bsh,h->bs", output, d)
+                    return output - torch.einsum("bs,h->bsh", projection, d)
 
                 return hook
 
@@ -153,33 +154,33 @@ class TDU(GradDiff):
         """
         # Original forget loss (without intervention)
         with torch.no_grad():
-            orig_forget_outputs = self.model(**forget_inputs)
-            orig_forget_loss = orig_forget_outputs.loss
+            orig_forget_loss = self.model(**forget_inputs).loss.detach()
 
         # Intervened forget loss
-        intervened_forget_outputs = self._forward_with_intervention(
+        intervened_forget_loss = self._forward_with_intervention(
             forget_inputs, target_modules
-        )
-        intervened_forget_loss = intervened_forget_outputs.loss
+        ).loss
 
         # Steer loss: we want intervention to INCREASE loss (break recall)
         # So we minimize negative of (intervened - original)
         steer_loss = -(intervened_forget_loss - orig_forget_loss)
 
         # Retain loss: KL divergence between original and intervened
+        # Only compute on the last token logits to save memory
         with torch.no_grad():
-            orig_retain_outputs = self.model(**retain_inputs)
-            orig_retain_logits = orig_retain_outputs.logits
+            orig_retain_logits = self.model(**retain_inputs).logits.detach()
 
-        intervened_retain_outputs = self._forward_with_intervention(
+        intervened_retain_logits = self._forward_with_intervention(
             retain_inputs, target_modules
-        )
-        intervened_retain_logits = intervened_retain_outputs.logits
+        ).logits
 
-        # KL divergence (intervened || original)
-        orig_probs = F.softmax(orig_retain_logits, dim=-1)
-        intervened_log_probs = F.log_softmax(intervened_retain_logits, dim=-1)
+        # KL divergence (intervened || original) — compute in float32 for stability
+        orig_probs = F.softmax(orig_retain_logits.float(), dim=-1)
+        intervened_log_probs = F.log_softmax(intervened_retain_logits.float(), dim=-1)
         retain_loss = F.kl_div(intervened_log_probs, orig_probs, reduction="batchmean")
+
+        # Free logits early
+        del orig_retain_logits, intervened_retain_logits, orig_probs, intervened_log_probs
 
         # Norm loss (if not using renormalization)
         norm_loss = torch.tensor(0.0, device=self.accelerator.device)
@@ -257,6 +258,32 @@ class TDU(GradDiff):
             list(self._direction_params.values()), lr=self.direction_lr
         )
 
+        # Check if wandb is available for logging
+        _wandb = None
+        if self.args.report_to and "wandb" in self.args.report_to:
+            try:
+                import wandb
+                if wandb.run is not None:
+                    _wandb = wandb
+                else:
+                    _wandb = wandb
+                    _wandb.init(
+                        project=os.environ.get("WANDB_PROJECT", "tdu"),
+                        name=getattr(self.args, "run_name", "tdu"),
+                        config={
+                            "direction_lr": self.direction_lr,
+                            "direction_steps": self.direction_steps,
+                            "lambda_retain": self.lambda_retain,
+                            "lambda_norm": self.lambda_norm,
+                            "use_renormalization": self.use_renormalization,
+                            "num_batches": self.num_batches,
+                            "target_modules": self.target_modules,
+                            "num_target_layers": len(target_modules),
+                        },
+                    )
+            except ImportError:
+                pass
+
         # Training loop
         self.model.eval()  # Keep model frozen during direction finding
 
@@ -266,21 +293,25 @@ class TDU(GradDiff):
 
             optimizer.zero_grad()
 
-            # Accumulate loss over batches
+            # Accumulate gradients over batches (backprop per batch to save memory)
             for batch in batches:
                 forget_inputs, retain_inputs = self._prepare_inputs_from_batch(batch)
 
                 loss, metrics = self._compute_direction_loss(
                     forget_inputs, retain_inputs, target_modules
                 )
-                total_loss = total_loss + loss / len(batches)
+                # Scale loss and backprop immediately to free the graph
+                scaled_loss = loss / len(batches)
+                scaled_loss.backward()
+
+                total_loss = total_loss + scaled_loss.detach()
 
                 # Accumulate metrics
                 for k, v in metrics.items():
                     total_metrics[k] = total_metrics.get(k, 0) + v / len(batches)
 
-            total_loss.backward()
             optimizer.step()
+            torch.cuda.empty_cache()
 
             # Renormalize after step
             if self.use_renormalization:
@@ -288,12 +319,26 @@ class TDU(GradDiff):
                     for name, f_u in self._direction_params.items():
                         f_u.data = F.normalize(f_u.data, dim=0)
 
+            # Log metrics
+            delta = total_metrics['intervened_forget_loss'] - total_metrics['orig_forget_loss']
+            if _wandb is not None:
+                _wandb.log({
+                    "phase1/steer_loss": total_metrics["steer_loss"],
+                    "phase1/retain_loss": total_metrics["retain_loss"],
+                    "phase1/norm_loss": total_metrics["norm_loss"],
+                    "phase1/total_loss": total_metrics["total_loss"],
+                    "phase1/orig_forget_loss": total_metrics["orig_forget_loss"],
+                    "phase1/intervened_forget_loss": total_metrics["intervened_forget_loss"],
+                    "phase1/delta": delta,
+                    "phase1/step": step,
+                })
+
             if step % 20 == 0:
                 logger.info(
                     f"Step {step}: "
                     f"steer={total_metrics['steer_loss']:.4f}, "
                     f"retain={total_metrics['retain_loss']:.4f}, "
-                    f"delta={total_metrics['intervened_forget_loss'] - total_metrics['orig_forget_loss']:.4f}"
+                    f"delta={delta:.4f}"
                 )
 
         # Store final directions
