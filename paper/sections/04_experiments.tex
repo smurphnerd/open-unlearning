@@ -1,0 +1,107 @@
+% Experiments section with actual results from MASSIVE cluster
+\label{sec:experiments}
+
+\subsection{Experimental Setup}
+\label{sec:exp_setup}
+
+\paragraph{Models.}
+We evaluate TDU on three autoregressive language models of varying scale:
+\begin{itemize}
+    \item \textbf{GPT-2} (124M parameters, 12 layers)~\citep{radford2019language}
+    \item \textbf{Pythia-410M} (410M parameters, 24 layers)~\citep{biderman2023pythia}
+    \item \textbf{Pythia-1B} (1B parameters, 16 layers)~\citep{biderman2023pythia}
+\end{itemize}
+All models are accessed via the TransformerLens library~\citep{nanda2023transformerlens}, which provides standardized hook interfaces for activation interventions.
+
+\paragraph{Dataset.}
+We use the CounterFact benchmark~\citep{meng2022locating}, which contains approximately 20,000 factual associations of the form (subject, relation, object). We randomly sample 50 facts for our experiments, ensuring diversity across relation types.
+
+\paragraph{Evaluation.}
+We measure layer-wise attribution via gradient norms and validate causal importance via ablation studies. For each fact and layer, we compute:
+\begin{itemize}
+    \item \textbf{Gradient Norm:} $\|\nabla_{\mathbf{h}^{(\ell)}} \mathcal{L}\|_2$ measuring sensitivity of the loss to activations at layer $\ell$.
+    \item \textbf{Ablation Delta:} Change in loss when zeroing the layer's contribution, measuring causal importance.
+\end{itemize}
+
+\subsection{Layer Attribution Results}
+\label{sec:layer_results}
+
+\begin{figure}[t]
+\centering
+\begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{figures/layer_attribution_gpt2.png}
+    \caption{GPT-2 (12 layers)}
+    \label{fig:layer_gpt2}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{figures/layer_attribution_EleutherAI_pythia-410m.png}
+    \caption{Pythia-410M (24 layers)}
+    \label{fig:layer_pythia410m}
+\end{subfigure}
+\hfill
+\begin{subfigure}[b]{0.32\textwidth}
+    \includegraphics[width=\textwidth]{figures/layer_attribution_EleutherAI_pythia-1b.png}
+    \caption{Pythia-1B (16 layers)}
+    \label{fig:layer_pythia1b}
+\end{subfigure}
+\caption{Layer attribution scores (gradient norm) across models for 50 CounterFact samples. Error bars show standard deviation across facts.}
+\label{fig:layer_attr}
+\end{figure}
+
+Figure~\ref{fig:layer_attr} shows the mean gradient attribution scores across 50 facts for each model.
+
+\paragraph{GPT-2 (12 layers).}
+Layer 2 shows the highest attribution with mean gradient norm 62.67 ($\pm$ 13.76), followed by layer 10 at 60.21 ($\pm$ 16.25). The ablation delta at layer 2 is 11.71, confirming strong causal influence on factual recall.
+
+\paragraph{Pythia-410M (24 layers).}
+Attribution is distributed across the deeper architecture, with layer 23 showing the highest score (14.33 $\pm$ 3.82). Later layers (21, 22, 23) contribute most significantly, with mean ablation delta of 8.12 at layer 23.
+
+\paragraph{Pythia-1B (16 layers).}
+Layer 3 shows the highest attribution (39.24 $\pm$ 9.15), with layers 0 and 14-15 also contributing significantly. The ablation delta of 10.15 at layer 3 confirms causal responsibility for factual recall.
+
+\begin{table}[t]
+\centering
+\caption{Layer attribution statistics across models (50 CounterFact samples).}
+\label{tab:layer_stats}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+\textbf{Model} & \textbf{Top Layer} & \textbf{Grad Norm} & \textbf{Std Dev} & \textbf{Ablation $\Delta$} \\
+\midrule
+GPT-2 & 2 & 62.67 & 13.76 & 11.71 \\
+Pythia-410M & 23 & 14.33 & 3.82 & 8.12 \\
+Pythia-1B & 3 & 39.24 & 9.15 & 10.15 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Top-5 layers by gradient attribution for each model.}
+\label{tab:top_layers}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+\textbf{Model} & \textbf{1st} & \textbf{2nd} & \textbf{3rd} & \textbf{4th} & \textbf{5th} \\
+\midrule
+GPT-2 & 2 & 10 & 0 & 1 & 9 \\
+Pythia-410M & 23 & 21 & 16 & 22 & 5 \\
+Pythia-1B & 3 & 0 & 14 & 15 & 13 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:layer_stats} and Table~\ref{tab:top_layers} summarize the layer attribution results. Key findings:
+
+\begin{enumerate}
+    \item \textbf{Factual encoding is sparse:} 2-3 layers account for the majority of attribution, enabling efficient targeted editing.
+    
+    \item \textbf{Layer patterns vary by architecture:} GPT-2 shows bimodal distribution (layers 2 and 10), while Pythia models concentrate attribution differently.
+    
+    \item \textbf{Ablation validates attribution:} High gradient norms correlate with large ablation deltas, confirming causal responsibility.
+\end{enumerate}
+
+\subsection{Discussion}
+
+These layer attribution results provide the foundation for TDU's targeted intervention strategy. By identifying which layers encode specific facts, we can apply surgical rank-one projections to remove knowledge while minimizing collateral damage to unrelated capabilities.
+
+Future work will evaluate TDU against baseline unlearning methods (ROME, MEMIT, gradient ascent) on standard metrics including efficacy, paraphrase generalization, and specificity scores.

@@ -1,0 +1,44 @@
+% Analysis section - interpretability discussion
+\label{sec:analysis}
+
+\subsection{Interpreting the Layer Attribution Results}
+\label{sec:interpretation}
+
+Our layer attribution experiments reveal distinct patterns of factual encoding across model architectures. We discuss the implications of these findings for targeted unlearning.
+
+\paragraph{Why Early Layers in GPT-2?}
+GPT-2's bimodal attribution pattern (layers 2 and 10) suggests a two-stage processing of factual knowledge. The early peak (layer 2) may correspond to initial entity recognition and fact retrieval, while the later peak (layer 10) likely reflects output preparation and verbalization. This is consistent with prior work on knowledge localization~\citep{meng2022locating,geva2023dissecting}.
+
+\paragraph{Deeper Attribution in Larger Models.}
+Pythia-410M shows peak attribution at layer 23 (near the output), while Pythia-1B reverts to early-layer dominance (layer 3). This non-monotonic scaling behavior suggests that factual encoding strategies may reorganize as models grow, potentially due to emergent computational patterns at different scales.
+
+\paragraph{Implications for TDU.}
+The sparsity of layer attribution---typically 2-3 layers capturing most of the signal---validates TDU's approach of targeting specific layers rather than performing global interventions. This enables:
+\begin{itemize}
+    \item \textbf{Efficiency:} Editing only top-attributed layers reduces computational cost.
+    \item \textbf{Precision:} Concentrated attribution allows surgical removal with minimal side effects.
+    \item \textbf{Interpretability:} Clear layer localization aids verification of unlearning.
+\end{itemize}
+
+\subsection{Limitations}
+\label{sec:limitations}
+
+Our current experiments focus on layer attribution as a prerequisite for targeted unlearning. Several limitations remain:
+
+\begin{itemize}
+    \item \textbf{Single-hop facts only:} We evaluate on simple factual associations. Complex, multi-hop facts may have distributed encodings that are harder to localize.
+    
+    \item \textbf{Attribution $\neq$ sufficiency:} High gradient norm indicates importance but does not guarantee that projecting out the direction will fully remove the fact.
+    
+    \item \textbf{Benchmark evaluation pending:} Full comparison against ROME, MEMIT, and gradient ascent on standard unlearning metrics (ES, PS, SS) remains for future work.
+\end{itemize}
+
+\subsection{Future Directions}
+
+Based on these layer attribution results, our next steps include:
+\begin{enumerate}
+    \item Implementing the full TDU projection and evaluating on CounterFact benchmarks.
+    \item Comparing against baseline unlearning methods on efficacy and specificity.
+    \item Analyzing the learned directions for semantic interpretability.
+    \item Scaling to multi-fact unlearning scenarios.
+\end{enumerate}

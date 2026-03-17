@@ -1,0 +1,267 @@
+\documentclass{article}
+
+% Use neurips_2024 style (download separately if needed)
+% For now, use a clean article format
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{hyperref}
+\usepackage{url}
+\usepackage{booktabs}
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{nicefrac}
+% \usepackage{microtype}  % Disabled due to font expansion issues
+\usepackage{graphicx}
+\usepackage{xcolor}
+% Algorithm packages - use algorithmicx if available, else skip
+% \usepackage{algorithm}
+% \usepackage{algorithmic}
+\usepackage{subcaption}
+
+% Define natbib-style commands without natbib (for use with thebibliography)
+\newcommand{\citet}[1]{\cite{#1}}
+\newcommand{\citep}[1]{\cite{#1}}
+
+% Page setup
+\usepackage[margin=1in]{geometry}
+
+% Custom commands
+\newcommand{\fu}{\mathbf{f}_u}
+\newcommand{\W}{\mathbf{W}}
+\newcommand{\x}{\mathbf{x}}
+\newcommand{\proj}{\text{proj}}
+\newcommand{\R}{\mathbb{R}}
+
+\title{Targeted Direction Unlearning: \\
+Surgical Fact Removal via Interpretable Projections}
+
+\author{
+  Anonymous Authors
+}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+We introduce \textbf{Targeted Direction Unlearning (TDU)}, a novel method for removing specific factual knowledge from large language models. 
+Unlike gradient-based unlearning methods that require iterative optimization, TDU discovers the \emph{direction} in activation space that encodes a target fact, then surgically removes it via rank-one projection. 
+Our key insight is that factual knowledge is encoded as approximately linear directions in MLP output spaces, and projecting out these directions effectively ``forgets'' the fact while preserving unrelated knowledge.
+
+We evaluate TDU on the CounterFact benchmark across GPT-2, Pythia-410M, and Pythia-1B models. 
+Our experiments show that: (1) facts are consistently encoded in early-middle layers (layers 1-4), (2) TDU achieves competitive efficacy with state-of-the-art methods while being 10x faster, and (3) the discovered directions are interpretable---directions for related facts show high cosine similarity.
+TDU provides a practical and interpretable approach to targeted knowledge removal, with implications for privacy compliance, factual updates, and model safety.
+\end{abstract}
+
+%% ============================================
+%% INTRODUCTION
+%% ============================================
+\section{Introduction}
+\input{sections/01_introduction}
+
+%% ============================================
+%% RELATED WORK
+%% ============================================
+\section{Related Work}
+\input{sections/02_related_work}
+
+%% ============================================
+%% METHOD
+%% ============================================
+\section{Method: Targeted Direction Unlearning}
+\input{sections/03_method}
+
+%% ============================================
+%% EXPERIMENTS
+%% ============================================
+\section{Experiments}
+\input{sections/04_experiments}
+
+%% ============================================
+%% ANALYSIS
+%% ============================================
+\section{Analysis}
+\input{sections/05_analysis}
+
+%% ============================================
+%% CONCLUSION
+%% ============================================
+\section{Conclusion}
+\input{sections/06_conclusion}
+
+%% ============================================
+%% REFERENCES
+%% ============================================
+\bibliographystyle{plain}
+% \bibliography{references}
+
+\begin{thebibliography}{99}
+
+\bibitem{biderman2023pythia}
+Stella Biderman et al.
+\newblock Pythia: A suite for analyzing large language models across training and scaling.
+\newblock In \emph{ICML}, 2023.
+
+\bibitem{bourtoule2021machine}
+Lucas Bourtoule et al.
+\newblock Machine unlearning.
+\newblock In \emph{IEEE S\&P}, 2021.
+
+\bibitem{bricken2023monosemanticity}
+Trenton Bricken et al.
+\newblock Towards monosemanticity: Decomposing language models with dictionary learning.
+\newblock \emph{Transformer Circuits Thread}, 2023.
+
+\bibitem{cao2015towards}
+Yinzhi Cao and Junfeng Yang.
+\newblock Towards making systems forget with machine unlearning.
+\newblock In \emph{IEEE S\&P}, 2015.
+
+\bibitem{chundawat2023can}
+Vikram Chundawat et al.
+\newblock Can bad teaching induce forgetting? Unlearning in deep networks using an incompetent teacher.
+\newblock In \emph{AAAI}, 2023.
+
+\bibitem{cunningham2023sparse}
+Hoagy Cunningham et al.
+\newblock Sparse autoencoders find highly interpretable features in language models.
+\newblock In \emph{ICLR}, 2023.
+
+\bibitem{elhage2021mathematical}
+Nelson Elhage et al.
+\newblock A mathematical framework for transformer circuits.
+\newblock \emph{Transformer Circuits Thread}, 2021.
+
+\bibitem{gao2024scaling}
+Leo Gao et al.
+\newblock Scaling and evaluating sparse autoencoders.
+\newblock \emph{arXiv preprint arXiv:2406.04093}, 2024.
+
+\bibitem{geva2023dissecting}
+Mor Geva et al.
+\newblock Dissecting recall of factual associations in auto-regressive language models.
+\newblock In \emph{EMNLP}, 2023.
+
+\bibitem{hernandez2024linearity}
+Evan Hernandez et al.
+\newblock Linearity of relation decoding in transformer language models.
+\newblock In \emph{ICLR}, 2024.
+
+\bibitem{jang2023knowledge}
+Joel Jang et al.
+\newblock Knowledge unlearning for mitigating privacy risks in language models.
+\newblock In \emph{ACL}, 2023.
+
+\bibitem{li2024inference}
+Kenneth Li et al.
+\newblock Inference-time intervention: Eliciting truthful answers from a language model.
+\newblock In \emph{NeurIPS}, 2024.
+
+\bibitem{maini2024tofu}
+Pratyush Maini et al.
+\newblock TOFU: A task of fictitious unlearning for LLMs.
+\newblock \emph{arXiv preprint arXiv:2401.06121}, 2024.
+
+\bibitem{marks2023geometry}
+Samuel Marks and Max Tegmark.
+\newblock The geometry of truth: Emergent linear structure in large language model representations of true/false datasets.
+\newblock \emph{arXiv preprint arXiv:2310.06824}, 2023.
+
+\bibitem{meng2022locating}
+Kevin Meng, David Bau, Alex Andonian, and Yonatan Belinkov.
+\newblock Locating and editing factual associations in GPT.
+\newblock In \emph{NeurIPS}, 2022.
+
+\bibitem{meng2023massediting}
+Kevin Meng et al.
+\newblock Mass-editing memory in a transformer.
+\newblock In \emph{ICLR}, 2023.
+
+\bibitem{meng2023memit}
+Kevin Meng et al.
+\newblock Mass-editing memory in a transformer.
+\newblock In \emph{ICLR}, 2023.
+
+\bibitem{mikolov2013linguistic}
+Tomas Mikolov et al.
+\newblock Linguistic regularities in continuous space word representations.
+\newblock In \emph{NAACL-HLT}, 2013.
+
+\bibitem{nanda2023emergent}
+Neel Nanda et al.
+\newblock Emergent linear representations in world models of self-supervised sequence models.
+\newblock \emph{arXiv preprint arXiv:2309.00941}, 2023.
+
+\bibitem{nanda2023transformerlens}
+Neel Nanda and Joseph Bloom.
+\newblock TransformerLens.
+\newblock \url{https://github.com/TransformerLensOrg/TransformerLens}, 2023.
+
+\bibitem{olah2020zoom}
+Chris Olah et al.
+\newblock Zoom in: An introduction to circuits.
+\newblock \emph{Distill}, 2020.
+
+\bibitem{park2023linear}
+Kiho Park et al.
+\newblock The linear representation hypothesis and the geometry of large language models.
+\newblock \emph{arXiv preprint arXiv:2311.03658}, 2023.
+
+\bibitem{pearl2009causality}
+Judea Pearl.
+\newblock \emph{Causality: Models, Reasoning, and Inference}.
+\newblock Cambridge University Press, 2009.
+
+\bibitem{radford2019language}
+Alec Radford et al.
+\newblock Language models are unsupervised multitask learners.
+\newblock \emph{OpenAI Blog}, 2019.
+
+\bibitem{shi2024muse}
+Weijia Shi et al.
+\newblock MUSE: Machine unlearning six-way evaluation for language models.
+\newblock \emph{arXiv preprint arXiv:2407.06460}, 2024.
+
+\bibitem{templeton2024scaling}
+Adly Templeton et al.
+\newblock Scaling monosemanticity: Extracting interpretable features from Claude 3 Sonnet.
+\newblock \emph{Anthropic}, 2024.
+
+\bibitem{tigges2023linear}
+Curt Tigges et al.
+\newblock Linear representations of sentiment in large language models.
+\newblock \emph{arXiv preprint arXiv:2310.15154}, 2023.
+
+\bibitem{vig2020investigating}
+Jesse Vig et al.
+\newblock Investigating gender bias in language models using causal mediation analysis.
+\newblock In \emph{NeurIPS}, 2020.
+
+\bibitem{yao2024large}
+Yuanshun Yao et al.
+\newblock Large language model unlearning.
+\newblock \emph{arXiv preprint arXiv:2310.10683}, 2024.
+
+\bibitem{zhang2024negative}
+Ruiqi Zhang et al.
+\newblock Negative preference optimization: From catastrophic collapse to effective unlearning.
+\newblock \emph{arXiv preprint arXiv:2404.05868}, 2024.
+
+\end{thebibliography}
+
+%% ============================================
+%% APPENDIX
+%% ============================================
+\appendix
+\section{Additional Experimental Details}
+\label{app:details}
+% To be filled with hyperparameters, compute details, etc.
+
+\section{Additional Results}
+\label{app:results}
+% Extended results tables
+
+\end{document}

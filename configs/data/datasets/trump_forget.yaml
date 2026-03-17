@@ -1,0 +1,10 @@
+trump_forget:
+  handler: QADataset
+  args:
+    hf_args:
+      path: "json"
+      data_files: "data/custom/trump_president_forget.jsonl"
+      split: "train"
+    question_key: "question"
+    answer_key: "answer"
+    max_length: 512
